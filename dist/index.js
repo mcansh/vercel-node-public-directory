@@ -99179,6 +99179,192 @@ exports.M = compile;
 
 /***/ }),
 
+/***/ 3195:
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Bridge = void 0;
+const http_1 = __webpack_require__(98605);
+/**
+ * If the `http.Server` handler function throws an error asynchronously,
+ * then it ends up being an unhandled rejection which doesn't kill the node
+ * process which causes the HTTP request to hang indefinitely. So print the
+ * error here and force the process to exit so that the lambda invocation
+ * returns an Unhandled error quickly.
+ */
+process.on("unhandledRejection", (err) => {
+    console.error("Unhandled rejection:", err);
+    process.exit(1);
+});
+function normalizeNowProxyEvent(event) {
+    let bodyBuffer;
+    const { method, path, headers, encoding, body } = JSON.parse(event.body);
+    if (body) {
+        if (encoding === "base64") {
+            bodyBuffer = Buffer.from(body, encoding);
+        }
+        else if (encoding === undefined) {
+            bodyBuffer = Buffer.from(body);
+        }
+        else {
+            throw new Error(`Unsupported encoding: ${encoding}`);
+        }
+    }
+    else {
+        bodyBuffer = Buffer.alloc(0);
+    }
+    return { isApiGateway: false, method, path, headers, body: bodyBuffer };
+}
+function normalizeAPIGatewayProxyEvent(event) {
+    let bodyBuffer;
+    const { httpMethod: method, path, headers, body } = event;
+    if (body) {
+        if (event.isBase64Encoded) {
+            bodyBuffer = Buffer.from(body, "base64");
+        }
+        else {
+            bodyBuffer = Buffer.from(body);
+        }
+    }
+    else {
+        bodyBuffer = Buffer.alloc(0);
+    }
+    return { isApiGateway: true, method, path, headers, body: bodyBuffer };
+}
+function normalizeEvent(event) {
+    if ("Action" in event) {
+        if (event.Action === "Invoke") {
+            return normalizeNowProxyEvent(event);
+        }
+        else {
+            throw new Error(`Unexpected event.Action: ${event.Action}`);
+        }
+    }
+    else {
+        return normalizeAPIGatewayProxyEvent(event);
+    }
+}
+class Bridge {
+    constructor(server, shouldStoreEvents = false) {
+        this.events = {};
+        this.reqIdSeed = 1;
+        this.shouldStoreEvents = false;
+        this.server = null;
+        this.shouldStoreEvents = shouldStoreEvents;
+        if (server) {
+            this.setServer(server);
+        }
+        this.launcher = this.launcher.bind(this);
+        // This is just to appease TypeScript strict mode, since it doesn't
+        // understand that the Promise constructor is synchronous
+        this.resolveListening = (_info) => { }; // eslint-disable-line @typescript-eslint/no-unused-vars
+        this.listening = new Promise((resolve) => {
+            this.resolveListening = resolve;
+        });
+    }
+    setServer(server) {
+        this.server = server;
+    }
+    listen() {
+        const { server, resolveListening } = this;
+        if (!server) {
+            throw new Error("Server has not been set!");
+        }
+        if (typeof server.timeout === "number" && server.timeout > 0) {
+            // Disable timeout (usually 2 minutes until Node 13).
+            // Instead, user should assign function `maxDuration`.
+            server.timeout = 0;
+        }
+        return server.listen({
+            host: "127.0.0.1",
+            port: 0,
+        }, function listeningCallback() {
+            if (!this || typeof this.address !== "function") {
+                throw new Error("Missing server.address() function on `this` in server.listen()");
+            }
+            const addr = this.address();
+            if (!addr) {
+                throw new Error("`server.address()` returned `null`");
+            }
+            if (typeof addr === "string") {
+                throw new Error(`Unexpected string for \`server.address()\`: ${addr}`);
+            }
+            resolveListening(addr);
+        });
+    }
+    async launcher(event, context) {
+        context.callbackWaitsForEmptyEventLoop = false;
+        const { port } = await this.listening;
+        const normalizedEvent = normalizeEvent(event);
+        const { isApiGateway, method, path, headers, body } = normalizedEvent;
+        if (this.shouldStoreEvents) {
+            const reqId = `${this.reqIdSeed++}`;
+            this.events[reqId] = normalizedEvent;
+            headers["x-now-bridge-request-id"] = reqId;
+        }
+        // eslint-disable-next-line consistent-return
+        return new Promise((resolve, reject) => {
+            const opts = { hostname: "127.0.0.1", port, path, method };
+            const req = http_1.request(opts, (res) => {
+                const response = res;
+                const respBodyChunks = [];
+                response.on("data", (chunk) => respBodyChunks.push(Buffer.from(chunk)));
+                response.on("error", reject);
+                response.on("end", () => {
+                    const bodyBuffer = Buffer.concat(respBodyChunks);
+                    delete response.headers.connection;
+                    if (isApiGateway) {
+                        delete response.headers["content-length"];
+                    }
+                    else if (response.headers["content-length"]) {
+                        response.headers["content-length"] = String(bodyBuffer.length);
+                    }
+                    resolve({
+                        statusCode: response.statusCode || 200,
+                        headers: response.headers,
+                        body: bodyBuffer.toString("base64"),
+                        encoding: "base64",
+                    });
+                });
+            });
+            req.on("error", (error) => {
+                setTimeout(() => {
+                    // this lets express print the true error of why the connection was closed.
+                    // it is probably 'Cannot set headers after they are sent to the client'
+                    reject(error);
+                }, 2);
+            });
+            for (const [name, value] of Object.entries(headers)) {
+                if (value === undefined) {
+                    console.error("Skipping HTTP request header %j because value is undefined", name);
+                    continue;
+                }
+                try {
+                    req.setHeader(name, value);
+                }
+                catch (err) {
+                    console.error("Skipping HTTP request header: %j", `${name}: ${value}`);
+                    console.error(err.message);
+                }
+            }
+            if (body)
+                req.write(body);
+            req.end();
+        });
+    }
+    consumeEvent(reqId) {
+        const event = this.events[reqId];
+        delete this.events[reqId];
+        return event;
+    }
+}
+exports.Bridge = Bridge;
+
+
+/***/ }),
+
 /***/ 6144:
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
@@ -99584,7 +99770,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getAwsLauncher = exports.makeAwsLauncher = exports.getNowLauncher = exports.makeNowLauncher = void 0;
 const url_1 = __webpack_require__(78835);
 const http_1 = __webpack_require__(98605);
-const now__bridge_1 = __webpack_require__(34401);
+const bridge_1 = __webpack_require__(3195);
 function makeNowLauncher(config) {
     const { entrypointPath, bridgePath, helpersPath, sourcemapSupportPath, shouldAddHelpers = false, shouldAddSourcemapSupport = false, } = config;
     return `const bridge_1 = require(${JSON.stringify(bridgePath)});
@@ -99602,7 +99788,7 @@ exports.launcher = bridge.launcher;`;
 exports.makeNowLauncher = makeNowLauncher;
 function getNowLauncher({ entrypointPath, helpersPath, shouldAddHelpers = false, }) {
     return function () {
-        let bridge = new now__bridge_1.Bridge();
+        let bridge = new bridge_1.Bridge();
         let isServerListening = false;
         const originalListen = http_1.Server.prototype.listen;
         http_1.Server.prototype.listen = function listen() {
@@ -99632,7 +99818,7 @@ function getNowLauncher({ entrypointPath, helpersPath, shouldAddHelpers = false,
                 http_1.Server.prototype.listen = originalListen;
                 let server;
                 if (shouldAddHelpers) {
-                    bridge = new now__bridge_1.Bridge(undefined, true);
+                    bridge = new bridge_1.Bridge(undefined, true);
                     server = require(helpersPath).createServerWithHelpers(listener, bridge);
                 }
                 else {
@@ -99709,192 +99895,6 @@ function getAwsLauncher({ entrypointPath, awsLambdaHandler = "", }) {
     };
 }
 exports.getAwsLauncher = getAwsLauncher;
-
-
-/***/ }),
-
-/***/ 34401:
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.Bridge = void 0;
-const http_1 = __webpack_require__(98605);
-/**
- * If the `http.Server` handler function throws an error asynchronously,
- * then it ends up being an unhandled rejection which doesn't kill the node
- * process which causes the HTTP request to hang indefinitely. So print the
- * error here and force the process to exit so that the lambda invocation
- * returns an Unhandled error quickly.
- */
-process.on("unhandledRejection", (err) => {
-    console.error("Unhandled rejection:", err);
-    process.exit(1);
-});
-function normalizeNowProxyEvent(event) {
-    let bodyBuffer;
-    const { method, path, headers, encoding, body } = JSON.parse(event.body);
-    if (body) {
-        if (encoding === "base64") {
-            bodyBuffer = Buffer.from(body, encoding);
-        }
-        else if (encoding === undefined) {
-            bodyBuffer = Buffer.from(body);
-        }
-        else {
-            throw new Error(`Unsupported encoding: ${encoding}`);
-        }
-    }
-    else {
-        bodyBuffer = Buffer.alloc(0);
-    }
-    return { isApiGateway: false, method, path, headers, body: bodyBuffer };
-}
-function normalizeAPIGatewayProxyEvent(event) {
-    let bodyBuffer;
-    const { httpMethod: method, path, headers, body } = event;
-    if (body) {
-        if (event.isBase64Encoded) {
-            bodyBuffer = Buffer.from(body, "base64");
-        }
-        else {
-            bodyBuffer = Buffer.from(body);
-        }
-    }
-    else {
-        bodyBuffer = Buffer.alloc(0);
-    }
-    return { isApiGateway: true, method, path, headers, body: bodyBuffer };
-}
-function normalizeEvent(event) {
-    if ("Action" in event) {
-        if (event.Action === "Invoke") {
-            return normalizeNowProxyEvent(event);
-        }
-        else {
-            throw new Error(`Unexpected event.Action: ${event.Action}`);
-        }
-    }
-    else {
-        return normalizeAPIGatewayProxyEvent(event);
-    }
-}
-class Bridge {
-    constructor(server, shouldStoreEvents = false) {
-        this.events = {};
-        this.reqIdSeed = 1;
-        this.shouldStoreEvents = false;
-        this.server = null;
-        this.shouldStoreEvents = shouldStoreEvents;
-        if (server) {
-            this.setServer(server);
-        }
-        this.launcher = this.launcher.bind(this);
-        // This is just to appease TypeScript strict mode, since it doesn't
-        // understand that the Promise constructor is synchronous
-        this.resolveListening = (_info) => { }; // eslint-disable-line @typescript-eslint/no-unused-vars
-        this.listening = new Promise((resolve) => {
-            this.resolveListening = resolve;
-        });
-    }
-    setServer(server) {
-        this.server = server;
-    }
-    listen() {
-        const { server, resolveListening } = this;
-        if (!server) {
-            throw new Error("Server has not been set!");
-        }
-        if (typeof server.timeout === "number" && server.timeout > 0) {
-            // Disable timeout (usually 2 minutes until Node 13).
-            // Instead, user should assign function `maxDuration`.
-            server.timeout = 0;
-        }
-        return server.listen({
-            host: "127.0.0.1",
-            port: 0,
-        }, function listeningCallback() {
-            if (!this || typeof this.address !== "function") {
-                throw new Error("Missing server.address() function on `this` in server.listen()");
-            }
-            const addr = this.address();
-            if (!addr) {
-                throw new Error("`server.address()` returned `null`");
-            }
-            if (typeof addr === "string") {
-                throw new Error(`Unexpected string for \`server.address()\`: ${addr}`);
-            }
-            resolveListening(addr);
-        });
-    }
-    async launcher(event, context) {
-        context.callbackWaitsForEmptyEventLoop = false;
-        const { port } = await this.listening;
-        const normalizedEvent = normalizeEvent(event);
-        const { isApiGateway, method, path, headers, body } = normalizedEvent;
-        if (this.shouldStoreEvents) {
-            const reqId = `${this.reqIdSeed++}`;
-            this.events[reqId] = normalizedEvent;
-            headers["x-now-bridge-request-id"] = reqId;
-        }
-        // eslint-disable-next-line consistent-return
-        return new Promise((resolve, reject) => {
-            const opts = { hostname: "127.0.0.1", port, path, method };
-            const req = http_1.request(opts, (res) => {
-                const response = res;
-                const respBodyChunks = [];
-                response.on("data", (chunk) => respBodyChunks.push(Buffer.from(chunk)));
-                response.on("error", reject);
-                response.on("end", () => {
-                    const bodyBuffer = Buffer.concat(respBodyChunks);
-                    delete response.headers.connection;
-                    if (isApiGateway) {
-                        delete response.headers["content-length"];
-                    }
-                    else if (response.headers["content-length"]) {
-                        response.headers["content-length"] = String(bodyBuffer.length);
-                    }
-                    resolve({
-                        statusCode: response.statusCode || 200,
-                        headers: response.headers,
-                        body: bodyBuffer.toString("base64"),
-                        encoding: "base64",
-                    });
-                });
-            });
-            req.on("error", (error) => {
-                setTimeout(() => {
-                    // this lets express print the true error of why the connection was closed.
-                    // it is probably 'Cannot set headers after they are sent to the client'
-                    reject(error);
-                }, 2);
-            });
-            for (const [name, value] of Object.entries(headers)) {
-                if (value === undefined) {
-                    console.error("Skipping HTTP request header %j because value is undefined", name);
-                    continue;
-                }
-                try {
-                    req.setHeader(name, value);
-                }
-                catch (err) {
-                    console.error("Skipping HTTP request header: %j", `${name}: ${value}`);
-                    console.error(err.message);
-                }
-            }
-            if (body)
-                req.write(body);
-            req.end();
-        });
-    }
-    consumeEvent(reqId) {
-        const event = this.events[reqId];
-        delete this.events[reqId];
-        return event;
-    }
-}
-exports.Bridge = Bridge;
 
 
 /***/ }),

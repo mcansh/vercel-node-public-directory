@@ -83,7 +83,7 @@ register({
 
 import { createServer, Server, IncomingMessage, ServerResponse } from "http";
 import { Readable } from "stream";
-import { Bridge } from "./now__bridge";
+import { Bridge } from "./bridge";
 import { getNowLauncher } from "./launcher";
 
 function listen(server: Server, port: number, host: string): Promise<void> {

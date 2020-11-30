@@ -1,6 +1,6 @@
 import { parse } from "url";
 import { createServer, Server } from "http";
-import { Bridge } from "./now__bridge";
+import { Bridge } from "./bridge";
 
 type LauncherConfiguration = {
   entrypointPath: string;

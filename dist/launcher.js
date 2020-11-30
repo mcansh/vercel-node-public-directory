@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAwsLauncher = exports.makeAwsLauncher = exports.getNowLauncher = exports.makeNowLauncher = void 0;
 const url_1 = require("url");
 const http_1 = require("http");
-const now__bridge_1 = require("./now__bridge");
+const bridge_1 = require("./bridge");
 function makeNowLauncher(config) {
     const { entrypointPath, bridgePath, helpersPath, sourcemapSupportPath, shouldAddHelpers = false, shouldAddSourcemapSupport = false, } = config;
     return `const bridge_1 = require(${JSON.stringify(bridgePath)});
@@ -21,7 +21,7 @@ exports.launcher = bridge.launcher;`;
 exports.makeNowLauncher = makeNowLauncher;
 function getNowLauncher({ entrypointPath, helpersPath, shouldAddHelpers = false, }) {
     return function () {
-        let bridge = new now__bridge_1.Bridge();
+        let bridge = new bridge_1.Bridge();
         let isServerListening = false;
         const originalListen = http_1.Server.prototype.listen;
         http_1.Server.prototype.listen = function listen() {
@@ -51,7 +51,7 @@ function getNowLauncher({ entrypointPath, helpersPath, shouldAddHelpers = false,
                 http_1.Server.prototype.listen = originalListen;
                 let server;
                 if (shouldAddHelpers) {
-                    bridge = new now__bridge_1.Bridge(undefined, true);
+                    bridge = new bridge_1.Bridge(undefined, true);
                     server = require(helpersPath).createServerWithHelpers(listener, bridge);
                 }
                 else {
