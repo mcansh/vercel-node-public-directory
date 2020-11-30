@@ -425,7 +425,14 @@ export async function build({
     runtime: nodeVersion.runtime,
   });
 
-  return { output: { lambda, ...publicDirectoryFiles }, watch };
+  return {
+    output: {},
+    routes: {
+      lambda,
+      ...publicDirectoryFiles,
+    },
+    watch,
+  };
 }
 
 export async function prepareCache({
