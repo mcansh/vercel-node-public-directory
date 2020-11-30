@@ -322,7 +322,7 @@ function getAWSLambdaHandler(entrypoint: string, config: Config) {
   return "";
 }
 
-export const version = 3;
+export const version = 2;
 
 export async function build({
   files,
@@ -420,15 +420,18 @@ export async function build({
     files: {
       ...preparedFiles,
       ...launcherFiles,
-      ...publicDirectoryFiles,
     },
     handler: `${LAUNCHER_FILENAME}.launcher`,
     runtime: nodeVersion.runtime,
   });
 
-  console.log(publicDirectoryFiles);
-
-  return { output: lambda, watch };
+  return {
+    output: {
+      [entrypoint]: lambda,
+      ...publicDirectoryFiles,
+    },
+    watch,
+  };
 }
 
 export async function prepareCache({

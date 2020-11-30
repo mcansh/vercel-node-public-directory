@@ -99599,7 +99599,7 @@ function getAWSLambdaHandler(entrypoint, config) {
     }
     return "";
 }
-exports.version = 3;
+exports.version = 2;
 async function build({ files, entrypoint, workPath, repoRootPath, config = {}, meta = {}, }) {
     const shouldAddHelpers = !(config.helpers === false || process.env.NODEJS_HELPERS === "0");
     const baseDir = repoRootPath || workPath;
@@ -99656,13 +99656,17 @@ async function build({ files, entrypoint, workPath, repoRootPath, config = {}, m
         files: {
             ...preparedFiles,
             ...launcherFiles,
-            ...publicDirectoryFiles,
         },
         handler: `${LAUNCHER_FILENAME}.launcher`,
         runtime: nodeVersion.runtime,
     });
-    console.log(publicDirectoryFiles);
-    return { output: lambda, watch };
+    return {
+        output: {
+            [entrypoint]: lambda,
+            ...publicDirectoryFiles,
+        },
+        watch,
+    };
 }
 exports.build = build;
 async function prepareCache({ workPath, }) {
