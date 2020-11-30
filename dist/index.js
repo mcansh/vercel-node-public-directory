@@ -99652,8 +99652,7 @@ async function build({ files, entrypoint, workPath, repoRootPath, config = {}, m
             fsPath: path_1.join(__dirname, "helpers.js"),
         });
     }
-    const lambdas = {};
-    lambdas[entrypoint] = await build_utils_1.createLambda({
+    const lambda = await build_utils_1.createLambda({
         files: {
             ...preparedFiles,
             ...launcherFiles,
@@ -99663,13 +99662,16 @@ async function build({ files, entrypoint, workPath, repoRootPath, config = {}, m
     });
     console.log(publicDirectoryFiles);
     return {
-        output: {
-            ...lambdas,
-            ...publicDirectoryFiles,
-        },
+        output: lambda,
         watch,
         childProcesses: [],
-        routes: [],
+        routes: [
+            { handle: "filesystem" },
+            {
+                src: "/(.*)",
+                dest: "/",
+            },
+        ],
     };
 }
 exports.build = build;

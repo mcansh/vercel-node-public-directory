@@ -46,6 +46,7 @@ import {
 } from "@vercel/build-utils";
 import { makeNowLauncher, makeAwsLauncher } from "./launcher";
 import { Register, register } from "./typescript";
+import { Route } from "@vercel/routing-utils";
 
 export { shouldServe };
 export { NowRequest, NowResponse } from "./types";
@@ -417,8 +418,7 @@ export async function build({
     });
   }
 
-  const lambdas: { [key: string]: Lambda } = {};
-  lambdas[entrypoint] = await createLambda({
+  const lambda = await createLambda({
     files: {
       ...preparedFiles,
       ...launcherFiles,
@@ -430,13 +430,16 @@ export async function build({
   console.log(publicDirectoryFiles);
 
   return {
-    output: {
-      ...lambdas,
-      ...publicDirectoryFiles,
-    },
+    output: lambda,
     watch,
     childProcesses: [],
-    routes: [],
+    routes: [
+      { handle: "filesystem" },
+      {
+        src: "/(.*)",
+        dest: "/",
+      },
+    ] as Route[],
   };
 }
 
