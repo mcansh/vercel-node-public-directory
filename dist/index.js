@@ -99660,7 +99660,8 @@ async function build({ files, entrypoint, workPath, repoRootPath, config = {}, m
         handler: `${LAUNCHER_FILENAME}.launcher`,
         runtime: nodeVersion.runtime,
     });
-    return { output: { lambda, ...publicDirectoryFiles }, watch };
+    console.log(publicDirectoryFiles);
+    return { output: lambda, watch };
 }
 exports.build = build;
 async function prepareCache({ workPath, }) {
