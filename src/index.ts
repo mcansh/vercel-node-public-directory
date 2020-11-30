@@ -429,18 +429,7 @@ export async function build({
 
   console.log(publicDirectoryFiles);
 
-  return {
-    output: lambda,
-    watch,
-    childProcesses: [],
-    routes: [
-      { handle: "filesystem" },
-      {
-        src: "/(.*)",
-        dest: "/",
-      },
-    ] as Route[],
-  };
+  return { output: lambda, watch };
 }
 
 export async function prepareCache({
