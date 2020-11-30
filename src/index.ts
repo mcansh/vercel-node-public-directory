@@ -427,7 +427,15 @@ export async function build({
 
   console.log(publicDirectoryFiles);
 
-  return { output: lambda, watch };
+  return {
+    output: {
+      [entrypoint]: lambda,
+      ...publicDirectoryFiles,
+    },
+    watch,
+    childProcesses: [],
+    routes: [],
+  };
 }
 
 export async function prepareCache({

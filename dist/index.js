@@ -99661,7 +99661,15 @@ async function build({ files, entrypoint, workPath, repoRootPath, config = {}, m
         runtime: nodeVersion.runtime,
     });
     console.log(publicDirectoryFiles);
-    return { output: lambda, watch };
+    return {
+        output: {
+            [entrypoint]: lambda,
+            ...publicDirectoryFiles,
+        },
+        watch,
+        childProcesses: [],
+        routes: [],
+    };
 }
 exports.build = build;
 async function prepareCache({ workPath, }) {
