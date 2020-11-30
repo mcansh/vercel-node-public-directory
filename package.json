@@ -12,6 +12,9 @@
   "files": [
     "dist"
   ],
+  "dependencies": {
+    "typescript": "4.1.2"
+  },
   "devDependencies": {
     "@babel/core": "7.5.0",
     "@babel/plugin-transform-modules-commonjs": "7.5.0",
@@ -33,7 +36,6 @@
     "node-fetch": "2.6.1",
     "source-map-support": "0.5.12",
     "test-listen": "1.1.0",
-    "ts-node": "9.0.0",
-    "typescript": "4.1.2"
+    "ts-node": "9.0.0"
   }
 }
