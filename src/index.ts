@@ -1,12 +1,12 @@
-import { fork, spawn } from 'child_process';
+import { fork, spawn } from "child_process";
 import {
   readFileSync,
   lstatSync,
   readlinkSync,
   statSync,
   promises as fsp,
-} from 'fs';
-import {
+} from "fs";
+import path, {
   basename,
   dirname,
   extname,
@@ -15,12 +15,11 @@ import {
   resolve,
   sep,
   parse as parsePath,
-} from 'path';
+} from "path";
 // @ts-ignore - `@types/mkdirp-promise` is broken
-import mkdirp from 'mkdirp-promise';
-import once from '@tootallnate/once';
-import { nodeFileTrace } from '@vercel/nft';
-import buildUtils from './build-utils';
+import mkdirp from "mkdirp-promise";
+import once from "@tootallnate/once";
+import { nodeFileTrace } from "@vercel/nft";
 import {
   File,
   Files,
@@ -30,8 +29,6 @@ import {
   Config,
   StartDevServerOptions,
   StartDevServerResult,
-} from '@vercel/build-utils';
-const {
   glob,
   download,
   FileBlob,
@@ -45,12 +42,12 @@ const {
   debug,
   isSymbolicLink,
   walkParentDirs,
-} = buildUtils;
-import { makeNowLauncher, makeAwsLauncher } from './launcher';
-import { Register, register } from './typescript';
+} from "@vercel/build-utils";
+import { makeNowLauncher, makeAwsLauncher } from "./launcher";
+import { Register, register } from "./typescript";
 
 export { shouldServe };
-export { NowRequest, NowResponse } from './types';
+export { NowRequest, NowResponse } from "./types";
 
 interface DownloadOptions {
   files: Files;
@@ -65,21 +62,21 @@ interface PortInfo {
 }
 
 function isPortInfo(v: any): v is PortInfo {
-  return v && typeof v.port === 'number';
+  return v && typeof v.port === "number";
 }
 
 const tscPath = resolve(
   dirname(require.resolve(eval('"typescript"'))),
-  '../bin/tsc'
+  "../bin/tsc"
 );
 
 // eslint-disable-next-line no-useless-escape
 const libPathRegEx = /^node_modules|[\/\\]node_modules[\/\\]/;
 
-const LAUNCHER_FILENAME = '___now_launcher';
-const BRIDGE_FILENAME = '___now_bridge';
-const HELPERS_FILENAME = '___now_helpers';
-const SOURCEMAP_SUPPORT_FILENAME = '__sourcemap_support';
+const LAUNCHER_FILENAME = "___now_launcher";
+const BRIDGE_FILENAME = "___now_bridge";
+const HELPERS_FILENAME = "___now_helpers";
+const SOURCEMAP_SUPPORT_FILENAME = "__sourcemap_support";
 
 async function downloadInstallAndBundle({
   files,
@@ -100,10 +97,10 @@ async function downloadInstallAndBundle({
   const spawnOpts = getSpawnOptions(meta, nodeVersion);
 
   if (meta.isDev) {
-    debug('Skipping dependency installation because dev mode is enabled');
+    debug("Skipping dependency installation because dev mode is enabled");
   } else {
     const installTime = Date.now();
-    console.log('Installing dependencies...');
+    console.log("Installing dependencies...");
     await runNpmInstall(entrypointFsDirname, [], spawnOpts, meta);
     debug(`Install complete [${Date.now() - installTime}ms]`);
   }
@@ -133,20 +130,20 @@ async function compile(
 
   if (config.includeFiles) {
     const includeFiles =
-      typeof config.includeFiles === 'string'
+      typeof config.includeFiles === "string"
         ? [config.includeFiles]
         : config.includeFiles;
 
     for (const pattern of includeFiles) {
       const files = await glob(pattern, workPath);
       await Promise.all(
-        Object.values(files).map(async entry => {
+        Object.values(files).map(async (entry) => {
           const { fsPath } = entry;
           const relPath = relative(baseDir, fsPath);
           fsCache.set(relPath, entry);
           const stream = entry.toStream();
           const { data } = await FileBlob.fromStream({ stream });
-          if (relPath.endsWith('.ts') || relPath.endsWith('.tsx')) {
+          if (relPath.endsWith(".ts") || relPath.endsWith(".tsx")) {
             sourceCache.set(
               relPath,
               compileTypeScript(fsPath, data.toString())
@@ -161,8 +158,8 @@ async function compile(
   }
 
   debug(
-    'Tracing input files: ' +
-      [...inputFiles].map(p => relative(workPath, p)).join(', ')
+    "Tracing input files: " +
+      [...inputFiles].map((p) => relative(workPath, p)).join(", ")
   );
 
   const preparedFiles: Files = {};
@@ -180,7 +177,7 @@ async function compile(
     const { code, map } = tsCompile(source, path);
     tsCompiled.add(relPath);
     preparedFiles[
-      relPath.slice(0, -3 - Number(path.endsWith('x'))) + '.js.map'
+      relPath.slice(0, -3 - Number(path.endsWith("x"))) + ".js.map"
     ] = new FileBlob({
       data: JSON.stringify(map),
     });
@@ -205,7 +202,7 @@ async function compile(
         if (cached === null) return null;
         try {
           let source: string | Buffer = readFileSync(fsPath);
-          if (fsPath.endsWith('.ts') || fsPath.endsWith('.tsx')) {
+          if (fsPath.endsWith(".ts") || fsPath.endsWith(".tsx")) {
             source = compileTypeScript(fsPath, source.toString());
           }
           const { mode } = lstatSync(fsPath);
@@ -219,7 +216,7 @@ async function compile(
           sourceCache.set(relPath, source);
           return source.toString();
         } catch (e) {
-          if (e.code === 'ENOENT' || e.code === 'EISDIR') {
+          if (e.code === "ENOENT" || e.code === "EISDIR") {
             sourceCache.set(relPath, null);
             return null;
           }
@@ -231,7 +228,7 @@ async function compile(
 
   for (const warning of warnings) {
     if (warning && warning.stack) {
-      debug(warning.stack.replace('Error: ', 'Warning: '));
+      debug(warning.stack.replace("Error: ", "Warning: "));
     }
   }
 
@@ -254,7 +251,7 @@ async function compile(
         resolve(dirname(entry.fsPath), readlinkSync(entry.fsPath))
       );
       if (
-        !symlinkTarget.startsWith('..' + sep) &&
+        !symlinkTarget.startsWith(".." + sep) &&
         fileList.indexOf(symlinkTarget) === -1
       ) {
         const stats = statSync(resolve(baseDir, symlinkTarget));
@@ -271,20 +268,20 @@ async function compile(
       tsCompiled.has(path)
     ) {
       preparedFiles[
-        path.slice(0, -3 - Number(path.endsWith('x'))) + '.js'
+        path.slice(0, -3 - Number(path.endsWith("x"))) + ".js"
       ] = entry;
     } else preparedFiles[path] = entry;
   }
 
   // Compile ES Modules into CommonJS
   const esmPaths = esmFileList.filter(
-    file =>
-      !file.endsWith('.ts') &&
-      !file.endsWith('.tsx') &&
+    (file) =>
+      !file.endsWith(".ts") &&
+      !file.endsWith(".tsx") &&
       !file.match(libPathRegEx)
   );
   if (esmPaths.length) {
-    const babelCompile = require('./babel').compile;
+    const babelCompile = require("./babel").compile;
     for (const path of esmPaths) {
       const filename = basename(path);
       const { data: source } = await FileBlob.fromStream({
@@ -297,7 +294,7 @@ async function compile(
         data: `${code}\n//# sourceMappingURL=${filename}.map`,
       });
       delete map.sourcesContent;
-      preparedFiles[path + '.map'] = new FileBlob({
+      preparedFiles[path + ".map"] = new FileBlob({
         data: JSON.stringify(map),
       });
     }
@@ -317,12 +314,12 @@ function getAWSLambdaHandler(entrypoint: string, config: Config) {
 
   if (process.env.NODEJS_AWS_HANDLER_NAME) {
     const { dir, name } = parsePath(entrypoint);
-    return `${dir}${dir ? sep : ''}${name}.${
+    return `${dir}${dir ? sep : ""}${name}.${
       process.env.NODEJS_AWS_HANDLER_NAME
     }`;
   }
 
-  return '';
+  return "";
 }
 
 export const version = 3;
@@ -336,7 +333,7 @@ export async function build({
   meta = {},
 }: BuildOptions) {
   const shouldAddHelpers = !(
-    config.helpers === false || process.env.NODEJS_HELPERS === '0'
+    config.helpers === false || process.env.NODEJS_HELPERS === "0"
   );
 
   const baseDir = repoRootPath || workPath;
@@ -358,11 +355,26 @@ export async function build({
   await runPackageJsonScript(
     entrypointFsDirname,
     // Don't consider "build" script since its intended for frontend code
-    ['vercel-build', 'now-build'],
+    ["vercel-build", "now-build"],
     spawnOpts
   );
 
-  debug('Tracing input files...');
+  let entryDirectory = path.dirname(entrypoint);
+  const entryPath = path.join(workPath, entryDirectory);
+  const publicFolderFiles = await glob("**", path.join(entryPath, "public"));
+
+  const publicDirectoryFiles = Object.keys(publicFolderFiles).reduce(
+    (mappedFiles, file) => ({
+      ...mappedFiles,
+      [path.join(
+        entryDirectory,
+        file.replace(/^public[/\\]+/, "")
+      )]: publicFolderFiles[file],
+    }),
+    {}
+  );
+
+  debug("Tracing input files...");
   const traceTime = Date.now();
   const { preparedFiles, shouldAddSourcemapSupport, watch } = await compile(
     workPath,
@@ -388,19 +400,19 @@ export async function build({
       }),
     }),
     [`${BRIDGE_FILENAME}.js`]: new FileFsRef({
-      fsPath: join(__dirname, 'bridge.js'),
+      fsPath: join(__dirname, "bridge.js"),
     }),
   };
 
   if (shouldAddSourcemapSupport) {
     launcherFiles[`${SOURCEMAP_SUPPORT_FILENAME}.js`] = new FileFsRef({
-      fsPath: join(__dirname, 'source-map-support.js'),
+      fsPath: join(__dirname, "source-map-support.js"),
     });
   }
 
   if (shouldAddHelpers) {
     launcherFiles[`${HELPERS_FILENAME}.js`] = new FileFsRef({
-      fsPath: join(__dirname, 'helpers.js'),
+      fsPath: join(__dirname, "helpers.js"),
     });
   }
 
@@ -413,13 +425,13 @@ export async function build({
     runtime: nodeVersion.runtime,
   });
 
-  return { output: lambda, watch };
+  return { output: { lambda, ...publicDirectoryFiles }, watch };
 }
 
 export async function prepareCache({
   workPath,
 }: PrepareCacheOptions): Promise<Files> {
-  const cache = await glob('node_modules/**', workPath);
+  const cache = await glob("node_modules/**", workPath);
   return cache;
 }
 
@@ -432,10 +444,10 @@ export async function startDevServer(
   const projectTsConfig = await walkParentDirs({
     base: workPath,
     start: join(workPath, dirname(entrypoint)),
-    filename: 'tsconfig.json',
+    filename: "tsconfig.json",
   });
 
-  const devServerPath = join(__dirname, 'dev-server.js');
+  const devServerPath = join(__dirname, "dev-server.js");
   const child = fork(devServerPath, [], {
     cwd: workPath,
     execArgv: [],
@@ -443,15 +455,15 @@ export async function startDevServer(
       ...process.env,
       ...meta.env,
       VERCEL_DEV_ENTRYPOINT: entrypoint,
-      VERCEL_DEV_TSCONFIG: projectTsConfig || '',
+      VERCEL_DEV_TSCONFIG: projectTsConfig || "",
       VERCEL_DEV_CONFIG: JSON.stringify(config),
       VERCEL_DEV_BUILD_ENV: JSON.stringify(meta.buildEnv || {}),
     },
   });
 
   const { pid } = child;
-  const onMessage = once<{ port: number }>(child, 'message');
-  const onExit = once.spread<[number, string | null]>(child, 'exit');
+  const onMessage = once<{ port: number }>(child, "message");
+  const onExit = once.spread<[number, string | null]>(child, "exit");
   const result = await Promise.race([onMessage, onExit]);
   onExit.cancel();
   onMessage.cancel();
@@ -460,11 +472,11 @@ export async function startDevServer(
     // "message" event
 
     const ext = extname(entrypoint);
-    if (ext === '.ts' || ext === '.tsx') {
+    if (ext === ".ts" || ext === ".tsx") {
       // Invoke `tsc --noEmit` asynchronously in the background, so
       // that the HTTP request is not blocked by the type checking.
       doTypeCheck(opts, projectTsConfig).catch((err: Error) => {
-        console.error('Type check for %j failed:', entrypoint, err);
+        console.error("Type check for %j failed:", entrypoint, err);
       });
     }
 
@@ -481,8 +493,8 @@ async function doTypeCheck(
   { entrypoint, workPath, meta = {} }: StartDevServerOptions,
   projectTsConfig: string | null
 ): Promise<void> {
-  const { devCacheDir = join(workPath, '.now', 'cache') } = meta;
-  const entrypointCacheDir = join(devCacheDir, 'node', entrypoint);
+  const { devCacheDir = join(workPath, ".now", "cache") } = meta;
+  const entrypointCacheDir = join(devCacheDir, "node", entrypoint);
 
   // In order to type-check a single file, a standalone tsconfig
   // file needs to be created that inherits from the base one :(
@@ -492,9 +504,9 @@ async function doTypeCheck(
   const tsconfigName = projectTsConfig
     ? `tsconfig-with-${relative(workPath, projectTsConfig).replace(
         /[\\/.]/g,
-        '-'
+        "-"
       )}.json`
-    : 'tsconfig.json';
+    : "tsconfig.json";
   const tsconfigPath = join(entrypointCacheDir, tsconfigName);
   const tsconfig = {
     extends: projectTsConfig
@@ -504,12 +516,12 @@ async function doTypeCheck(
   };
 
   try {
-    const json = JSON.stringify(tsconfig, null, '\t');
+    const json = JSON.stringify(tsconfig, null, "\t");
     await mkdirp(entrypointCacheDir);
-    await fsp.writeFile(tsconfigPath, json, { flag: 'wx' });
+    await fsp.writeFile(tsconfigPath, json, { flag: "wx" });
   } catch (err) {
     // Don't throw if the file already exists
-    if (err.code !== 'EEXIST') {
+    if (err.code !== "EEXIST") {
       throw err;
     }
   }
@@ -518,18 +530,18 @@ async function doTypeCheck(
     process.execPath,
     [
       tscPath,
-      '--project',
+      "--project",
       tsconfigPath,
-      '--noEmit',
-      '--allowJs',
-      '--esModuleInterop',
-      '--jsx',
-      'react',
+      "--noEmit",
+      "--allowJs",
+      "--esModuleInterop",
+      "--jsx",
+      "react",
     ],
     {
       cwd: workPath,
-      stdio: 'inherit',
+      stdio: "inherit",
     }
   );
-  await once.spread<[number, string | null]>(child, 'exit');
+  await once.spread<[number, string | null]>(child, "exit");
 }
