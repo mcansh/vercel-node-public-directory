@@ -25,6 +25,7 @@
     "@vercel/build-utils": "2.6.0",
     "@vercel/ncc": "0.24.0",
     "@vercel/nft": "0.9.4",
+    "@vercel/routing-utils": "1.9.1",
     "content-type": "1.0.4",
     "cookie": "0.4.0",
     "etag": "1.8.1",

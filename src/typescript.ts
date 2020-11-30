@@ -1,7 +1,6 @@
-import { relative, basename, resolve, dirname } from 'path';
-import _ts from 'typescript';
-import buildUtils from './build-utils';
-const { NowBuildError } = buildUtils;
+import { relative, basename, resolve, dirname } from "path";
+import _ts from "typescript";
+import { NowBuildError } from "@vercel/build-utils";
 
 /*
  * Fork of TS-Node - https://github.com/TypeStrong/ts-node
@@ -14,7 +13,7 @@ const { NowBuildError } = buildUtils;
  */
 const shouldDebug = false;
 const debug = shouldDebug
-  ? console.log.bind(console, 'ts-node')
+  ? console.log.bind(console, "ts-node")
   : () => undefined;
 const debugFn = shouldDebug
   ? <T, U>(key: string, fn: (arg: T) => U) => {
@@ -101,14 +100,14 @@ const TS_NODE_COMPILER_OPTIONS = {
   inlineSources: true,
   declaration: false,
   noEmit: false,
-  outDir: '$$ts-node$$',
+  outDir: "$$ts-node$$",
 };
 
 /**
  * Replace backslashes with forward slashes.
  */
 function normalizeSlashes(value: string): string {
-  return value.replace(/\\/g, '/');
+  return value.replace(/\\/g, "/");
 }
 
 /**
@@ -150,10 +149,10 @@ export function register(opts: Options = {}): Register {
 
   // Require the TypeScript compiler and configuration.
   const cwd = options.basePath || process.cwd();
-  const nowNodeBase = resolve(__dirname, '..', '..', '..');
+  const nowNodeBase = resolve(__dirname, "..", "..", "..");
   let compiler: string;
   try {
-    compiler = require.resolve(options.compiler || 'typescript', {
+    compiler = require.resolve(options.compiler || "typescript", {
       paths: [options.project || cwd, nowNodeBase],
     });
   } catch (e) {
@@ -162,9 +161,9 @@ export function register(opts: Options = {}): Register {
   //eslint-disable-next-line @typescript-eslint/no-var-requires
   const ts: typeof _ts = require(compiler);
   if (compiler.startsWith(nowNodeBase)) {
-    console.log('Using TypeScript ' + ts.version + ' (no local tsconfig.json)');
+    console.log("Using TypeScript " + ts.version + " (no local tsconfig.json)");
   } else {
-    console.log('Using TypeScript ' + ts.version + ' (local user-provided)');
+    console.log("Using TypeScript " + ts.version + " (local user-provided)");
   }
   const transformers = options.transformers || undefined;
   const readFile = options.readFile || ts.sys.readFile;
@@ -178,12 +177,12 @@ export function register(opts: Options = {}): Register {
   const diagnosticHost: _ts.FormatDiagnosticsHost = {
     getNewLine: () => ts.sys.newLine,
     getCurrentDirectory: () => cwd,
-    getCanonicalFileName: path => path,
+    getCanonicalFileName: (path) => path,
   };
 
   function createTSError(diagnostics: ReadonlyArray<_ts.Diagnostic>) {
     const message = formatDiagnostics(diagnostics, diagnosticHost);
-    return new NowBuildError({ code: 'NODE_TYPESCRIPT_ERROR', message });
+    return new NowBuildError({ code: "NODE_TYPESCRIPT_ERROR", message });
   }
 
   function reportTSError(
@@ -199,13 +198,13 @@ export function register(opts: Options = {}): Register {
       throw error;
     } else {
       // Print error in red color and continue execution.
-      console.error('\x1b[31m%s\x1b[0m', error);
+      console.error("\x1b[31m%s\x1b[0m", error);
     }
   }
 
   // we create a custom build per tsconfig.json instance
   const builds = new Map<string, Build>();
-  function getBuild(configFileName = ''): Build {
+  function getBuild(configFileName = ""): Build {
     let build = builds.get(configFileName);
     if (build) return build;
 
@@ -214,7 +213,7 @@ export function register(opts: Options = {}): Register {
     /**
      * Create the basic required function using transpile mode.
      */
-    const getOutput = function(code: string, fileName: string): SourceOutput {
+    const getOutput = function (code: string, fileName: string): SourceOutput {
       const result = ts.transpileModule(code, {
         fileName,
         transformers,
@@ -235,14 +234,14 @@ export function register(opts: Options = {}): Register {
     let getOutputTypeCheck: (code: string, fileName: string) => SourceOutput;
     {
       const memoryCache = new MemoryCache(config.fileNames);
-      const cachedReadFile = cachedLookup(debugFn('readFile', readFile));
+      const cachedReadFile = cachedLookup(debugFn("readFile", readFile));
 
       // Create the compiler host for type checking.
       const serviceHost: _ts.LanguageServiceHost = {
         getScriptFileNames: () => Array.from(memoryCache.fileVersions.keys()),
         getScriptVersion: (fileName: string) => {
           const version = memoryCache.fileVersions.get(fileName);
-          return version === undefined ? '' : version.toString();
+          return version === undefined ? "" : version.toString();
         },
         getScriptSnapshot(fileName: string) {
           let contents = memoryCache.fileContents.get(fileName);
@@ -260,14 +259,14 @@ export function register(opts: Options = {}): Register {
         },
         readFile: cachedReadFile,
         readDirectory: cachedLookup(
-          debugFn('readDirectory', ts.sys.readDirectory)
+          debugFn("readDirectory", ts.sys.readDirectory)
         ),
         getDirectories: cachedLookup(
-          debugFn('getDirectories', ts.sys.getDirectories)
+          debugFn("getDirectories", ts.sys.getDirectories)
         ),
-        fileExists: cachedLookup(debugFn('fileExists', fileExists)),
+        fileExists: cachedLookup(debugFn("fileExists", fileExists)),
         directoryExists: cachedLookup(
-          debugFn('directoryExists', ts.sys.directoryExists)
+          debugFn("directoryExists", ts.sys.directoryExists)
         ),
         getNewLine: () => ts.sys.newLine,
         useCaseSensitiveFileNames: () => ts.sys.useCaseSensitiveFileNames,
@@ -284,7 +283,7 @@ export function register(opts: Options = {}): Register {
       const service = ts.createLanguageService(serviceHost, registry);
 
       // Set the file contents into cache manually.
-      const updateMemoryCache = function(contents: string, fileName: string) {
+      const updateMemoryCache = function (contents: string, fileName: string) {
         const fileVersion = memoryCache.fileVersions.get(fileName) || 0;
 
         // Avoid incrementing cache when nothing has changed.
@@ -294,7 +293,7 @@ export function register(opts: Options = {}): Register {
         memoryCache.fileContents.set(fileName, contents);
       };
 
-      getOutputTypeCheck = function(code: string, fileName: string) {
+      getOutputTypeCheck = function (code: string, fileName: string) {
         updateMemoryCache(code, fileName);
 
         const output = service.getEmitOutput(fileName);
@@ -318,10 +317,10 @@ export function register(opts: Options = {}): Register {
         // Throw an error when requiring `.d.ts` files.
         if (output.outputFiles.length === 0) {
           throw new TypeError(
-            'Unable to require `.d.ts` file.\n' +
-              'This is usually the result of a faulty configuration or import. ' +
-              'Make sure there is a `.js`, `.json` or another executable extension and ' +
-              'loader (attached before `ts-node`) available alongside ' +
+            "Unable to require `.d.ts` file.\n" +
+              "This is usually the result of a faulty configuration or import. " +
+              "Make sure there is a `.js`, `.json` or another executable extension and " +
+              "loader (attached before `ts-node`) available alongside " +
               `\`${basename(fileName)}\`.`
           );
         }
@@ -493,5 +492,5 @@ type SourceOutput = { code: string; map: string };
  * Filter diagnostics.
  */
 function filterDiagnostics(diagnostics: _ts.Diagnostic[], ignore: number[]) {
-  return diagnostics.filter(x => ignore.indexOf(x.code) === -1);
+  return diagnostics.filter((x) => ignore.indexOf(x.code) === -1);
 }
