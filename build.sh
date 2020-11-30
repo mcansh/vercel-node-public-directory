@@ -6,9 +6,9 @@ tsc
 
 # todo: improve
 # copy type file for ts test
-cp dist/types.d.ts test/fixtures/15-helpers/ts/types.d.ts
+# cp dist/types.d.ts test/fixtures/15-helpers/ts/types.d.ts
 # setup symlink for symlink test
-ln -sf symlinked-asset test/fixtures/11-symlinks/symlink
+# ln -sf symlinked-asset test/fixtures/11-symlinks/symlink
 
 # use types.d.ts as the main types export
 mv dist/types.d.ts dist/types
@@ -22,7 +22,7 @@ mv dist/helpers/index.js dist/helpers.js
 rm -rf dist/helpers
 
 # build source-map-support/register for source maps
-ncc build ../../node_modules/source-map-support/register -e @vercel/build-utils -e @now/build-utils -o dist/source-map-support
+ncc build node_modules/source-map-support/register -e @vercel/build-utils -e @now/build-utils -o dist/source-map-support
 mv dist/source-map-support/index.js dist/source-map-support.js
 rm -rf dist/source-map-support
 
