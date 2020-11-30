@@ -42,6 +42,7 @@ import {
   debug,
   isSymbolicLink,
   walkParentDirs,
+  Lambda,
 } from "@vercel/build-utils";
 import { makeNowLauncher, makeAwsLauncher } from "./launcher";
 import { Register, register } from "./typescript";
@@ -416,7 +417,8 @@ export async function build({
     });
   }
 
-  const lambda = await createLambda({
+  const lambdas: { [key: string]: Lambda } = {};
+  lambdas[entrypoint] = await createLambda({
     files: {
       ...preparedFiles,
       ...launcherFiles,
@@ -429,7 +431,7 @@ export async function build({
 
   return {
     output: {
-      [entrypoint]: lambda,
+      ...lambdas,
       ...publicDirectoryFiles,
     },
     watch,
