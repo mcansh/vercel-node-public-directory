@@ -42,11 +42,9 @@ import {
   debug,
   isSymbolicLink,
   walkParentDirs,
-  Lambda,
 } from "@vercel/build-utils";
 import { makeNowLauncher, makeAwsLauncher } from "./launcher";
 import { Register, register } from "./typescript";
-import { Route } from "@vercel/routing-utils";
 
 export { shouldServe };
 export { NowRequest, NowResponse } from "./types";
@@ -422,6 +420,7 @@ export async function build({
     files: {
       ...preparedFiles,
       ...launcherFiles,
+      ...publicDirectoryFiles,
     },
     handler: `${LAUNCHER_FILENAME}.launcher`,
     runtime: nodeVersion.runtime,

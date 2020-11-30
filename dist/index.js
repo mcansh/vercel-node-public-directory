@@ -99656,6 +99656,7 @@ async function build({ files, entrypoint, workPath, repoRootPath, config = {}, m
         files: {
             ...preparedFiles,
             ...launcherFiles,
+            ...publicDirectoryFiles,
         },
         handler: `${LAUNCHER_FILENAME}.launcher`,
         runtime: nodeVersion.runtime,
