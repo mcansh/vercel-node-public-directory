@@ -328,7 +328,6 @@ export async function build({
   files,
   entrypoint,
   workPath,
-  repoRootPath,
   config = {},
   meta = {},
 }: BuildOptions) {
@@ -336,7 +335,7 @@ export async function build({
     config.helpers === false || process.env.NODEJS_HELPERS === "0"
   );
 
-  const baseDir = repoRootPath || workPath;
+  const baseDir = workPath;
   const awsLambdaHandler = getAWSLambdaHandler(entrypoint, config);
 
   const {
